@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=11">
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>ERP_BI View Studio - VLX</title>
+<style>
+  html,body{margin:0;height:100%;background:#0f172a;color:#e2e8f0;font-family:Segoe UI,Tahoma,sans-serif;font-size:13px}
+  #app{display:flex;height:100%}
+  #side{width:250px;min-width:250px;background:#111827;border-right:1px solid #334155;display:flex;flex-direction:column}
+  #side .hd{padding:10px 12px;border-bottom:1px solid #334155;font-weight:700}
+  #vfilter{margin:8px;padding:7px 9px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:8px;outline:none}
+  #vlist{overflow:auto;flex:1;padding:0 6px 10px}
+  .grp{margin:8px 6px 4px;font-size:11px;font-weight:700}
+  .vbtn{display:block;width:100%;text-align:left;margin:2px 0;padding:6px 9px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:7px;cursor:pointer;font-family:Consolas,monospace;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vbtn:hover{background:#334155}
+  .vbtn.sel{background:#2563eb;border-color:#3b82f6}
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #top{padding:8px 12px;border-bottom:1px solid #334155;background:#0b1220;display:flex;flex-wrap:wrap;align-items:center}
+  #top > *{margin:3px 6px 3px 0}
+  #top input,#top select{padding:6px 8px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:7px;outline:none}
+  .btn{padding:6px 11px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:7px;cursor:pointer}
+  .btn:hover{background:#334155}
+  .btn.act{background:#2563eb;border-color:#3b82f6}
+  #title{font-weight:700;font-size:14px;margin-right:auto;font-family:Consolas,monospace}
+  #status{padding:5px 12px;font-size:11px;color:#94a3b8;border-bottom:1px solid #1e293b;background:#0b1220}
+  #body{flex:1;overflow:auto;padding:10px 12px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{border:1px solid #334155;padding:4px 7px;text-align:left;white-space:nowrap;max-width:380px;overflow:hidden;text-overflow:ellipsis}
+  th{background:#1e293b;position:sticky;top:0;cursor:default}
+  tr:nth-child(even) td{background:#0e1726}
+  td.num{text-align:right;font-family:Consolas,monospace}
+  #defbox{white-space:pre-wrap;font-family:Consolas,monospace;font-size:12.5px;background:#0b1220;border:1px solid #334155;border-radius:8px;padding:12px;color:#cbd5e1}
+  #sqlwrap{display:none;padding:8px 12px;border-bottom:1px solid #334155;background:#0b1220}
+  #sqltext{width:100%;height:70px;box-sizing:border-box;padding:7px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:7px;font-family:Consolas,monospace;outline:none}
+  .err{color:#fca5a5}
+  .ok{color:#86efac}
+  .sec{margin:6px 0 4px;font-size:13px;font-weight:700;color:#93c5fd}
+  .chip{display:inline-block;margin:3px 5px 3px 0;padding:4px 9px;border:1px solid #334155;background:#0e1726;border-radius:14px;font-family:Consolas,monospace;font-size:12px}
+  .chip .t{color:#64748b;font-size:10px;margin-left:5px}
+  .calc{margin:3px 0;padding:6px 9px;border:1px solid #334155;background:#0b1220;border-radius:7px;font-family:Consolas,monospace;font-size:12.5px}
+  .calc b{color:#86efac}
+  .calc .eq{color:#64748b;margin:0 6px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <div class="hd">VLX &middot; ERP_BI View Studio <span style="opacity:.55;font-weight:400;font-size:11px">build b8</span></div>
+    <input id="vfilter" placeholder="view filtrele...">
+    <button class="btn" id="bRefresh" style="margin:0 8px 8px" onclick="loadViewsFromDB()" title="SQL'deki tum ERP_BI view'larini cek (yeni eklenenler dahil)">&#8635; Listeyi DB'den cek</button>
+    <div id="vlist"></div>
+  </div>
+  <div id="main">
+    <div id="top">
+      <span id="title">View secin</span>
+      <button class="btn act" id="bData" onclick="setMode('data')">Veri</button>
+      <button class="btn" id="bDef" onclick="setMode('def')">Tanim</button>
+      <button class="btn" id="bAnat" onclick="setMode('anat')">Anatomi</button>
+      <button class="btn" id="bSql" onclick="toggleSql()">Serbest SQL</button>
+      <label>Satir:
+        <select id="lim">
+          <option>100</option><option>500</option><option>1000</option><option>5000</option>
+        </select>
+      </label>
+      <input id="search" placeholder="satir ara..." onkeyup="applyFilters()">
+      <label>Sirket:
+        <select id="comp" onchange="applyFilters()"><option value="">(tum)</option></select>
+      </label>
+      <label title="Sutun basliklarini Turkce goster"><input type="checkbox" id="trHdr" onchange="applyFilters()"> TR baslik</label>
+      <button class="btn" onclick="reload()">Yenile</button>
+      <button class="btn" onclick="exportCsv()">CSV</button>
+    </div>
+    <div id="sqlwrap">
+      <textarea id="sqltext" placeholder="SELECT TOP 100 * FROM ERP_BI_KUR   (sadece SELECT/WITH)"></textarea>
+      <div style="margin-top:6px"><button class="btn act" onclick="runFree()">Calistir (F5)</button></div>
+    </div>
+    <div id="status">Hazir.</div>
+    <div id="body"></div>
+  </div>
+</div>
+
+<script>
+
+/* === VLX ortak tarih yardimcisi (IE11-safe) - otomatik enjekte === */
+function VLXDATE(v){
+  if(v === null || typeof v === 'undefined' || v === '') return '';
+  function p2(n){ return (n<10?'0':'')+n; }
+  function ymd(y,mo,d){ if(y<1950) return ''; return p2(d)+'.'+p2(mo)+'.'+y; }
+  if(v && typeof v === 'object' && typeof v.getFullYear === 'function'){
+    return ymd(v.getFullYear(), v.getMonth()+1, v.getDate());
+  }
+  var s = '' + v;
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m){ return ymd(parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10)); }
+  var MON={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+  var j = s.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if(j && MON[j[1].toUpperCase()]){ return ymd(parseInt(j[3],10), MON[j[1].toUpperCase()], parseInt(j[2],10)); }
+  return s;
+}
+
+
+/* ======================= AYAR ======================= */
+var CONN = "Provider=SQLNCLI11;Data Source=2012_AX_DB_1;Initial Catalog=AX2012LIVE;Integrated Security=SSPI;";
+var MAXTOP = 5000;
+var COMP_COLS = ["DATAAREAID","SIRKETKODU","DATAAREA","COMPANY","SIRKET"];
+
+/* ======================= VIEW LISTESI (62) ======================= */
+var AOT = ["ALACAKLAR","BUTCE_HAMMADDE","BUTCE_KURLARI","BUTCE_MUHASEBE","BUTCE_SATIS","BUTCE_SATIS_MALIYET","DONEM","HESAPPLANI","INVENTTRANS","LEDGERTRANS","MADDEKARTI","MUSTERIKARTI","PERSONEL","SABITKIYMET","SABITKIYMETKARTI","SATICIKARTI","SATINALMA","SATISFATURA","URETIMEMRI"];
+var SQLO = ["ACIKSIPARIS","ALACAK","ALACAK_DETAY","ALACAK_YASLANDIRMA","ALINAN_CEK","BANKA","BANKA_DETAY","BANKAKARTI","BORC","BORC_DETAY","BORC_YASLANDIRMA","BUTCE","CARI","CEK_VADE","DENGEBAKIYE","FATURA_OZET","FIYATLISTESI","IADELER","KASA","KDV","KONSOLIDE_OZET","KONSOLIDE_Q1","KUR","MALIYET","MIZAN_DETAY","MIZAN_DETAY_V2","MIZAN_DETAY_V3","MUTABAKAT","NAKIT_OZET","NEGATIFSTOK","SATIS_KARLILIK","SATISFAT","SAYIM","SIRKETLER","STOK_YASLANDIRMA","STOKBAKIYE","STOKDEVIR","STOKHAREKET","TESLIMATSURESI","TRANSFEREMRI","URETIM_VERIM","URETIMMALIYETI","VERILEN_CEK"];
+
+/* ======================= DURUM ======================= */
+var _cn = null;
+var cur = { view:"", mode:"data", fields:[], rows:[] };
+
+/* ======================= BAGLANTI ======================= */
+function getConn(){
+  if(_cn) return _cn;
+  var cn = new ActiveXObject("ADODB.Connection");
+  cn.CommandTimeout = 60;
+  cn.Open(CONN);
+  _cn = cn;
+  return _cn;
+}
+function runSql(sql){
+  var cn = getConn();
+  var rs = cn.Execute(sql);
+  var fields = [], i;
+  for(i=0;i<rs.Fields.Count;i++){ fields.push(rs.Fields.Item(i).Name); }
+  var rows = [];
+  while(!rs.EOF){
+    var o = {};
+    for(i=0;i<fields.length;i++){ o[fields[i]] = rs.Fields.Item(i).Value; }
+    rows.push(o);
+    rs.MoveNext();
+  }
+  try{ rs.Close(); }catch(e){}
+  return { fields:fields, rows:rows };
+}
+
+/* ======================= YARDIMCI ======================= */
+function esc(s){ s = "" + s; return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function isNum(v){ return typeof v === "number"; }
+function trim(s){ return ("" + s).replace(/^\s+|\s+$/g,""); }
+var MON = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+function pad2(n){ return (n<10?"0":"") + n; }
+function fmtYMD(y, mo, d, hh, mm, ss){
+  if(y < 1950) return "";              /* AX bos tarih (1900) -> bos */
+  var s = pad2(d) + "." + pad2(mo) + "." + y;   /* gg.aa.yyyy */
+  if(hh||mm||ss) s += " " + pad2(hh) + ":" + pad2(mm) + ":" + pad2(ss);
+  return s;
+}
+function fmt(v){
+  if(v === null || typeof v === "undefined") return "";
+  /* 1) Gercek JScript Date nesnesi */
+  if(v && typeof v === "object" && typeof v.getFullYear === "function"){
+    return fmtYMD(v.getFullYear(), v.getMonth()+1, v.getDate(), v.getHours(), v.getMinutes(), v.getSeconds());
+  }
+  /* ADODB tarihi cogu zaman JScript Date'i DEGIL, string'e cevrilince tarih veren bir
+     VT_DATE variant olur (typeof "object" ama getFullYear yok). O yuzden HER degeri
+     string'e cevirip tarih kaliplarini dene. */
+  var s = "" + v;
+  /* 2) ISO / SQL: 2026-05-10T10:42:18 | 2026-05-10 10:42:18 | 2026-05-10 */
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2}))?/);
+  if(m){
+    return fmtYMD(parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10),
+                  m[4]?parseInt(m[4],10):0, m[5]?parseInt(m[5],10):0, m[6]?parseInt(m[6],10):0);
+  }
+  /* 3) JS Date toString: "Fri Mar 13 2026 00:00:00 GMT+0300 (Turkey Standard Time)" */
+  var j = s.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})(?:\s+(\d{2}):(\d{2}):(\d{2}))?/);
+  if(j && MON[j[1].toUpperCase()]){
+    return fmtYMD(parseInt(j[3],10), MON[j[1].toUpperCase()], parseInt(j[2],10),
+                  j[4]?parseInt(j[4],10):0, j[5]?parseInt(j[5],10):0, j[6]?parseInt(j[6],10):0);
+  }
+  return s;
+}
+function setStatus(msg, cls){ var s=document.getElementById("status"); s.className=""; s.innerHTML = cls?("<span class='"+cls+"'>"+esc(msg)+"</span>"):esc(msg); }
+function clamp(n){ n = parseInt(n,10); if(!n||n<1) n=100; if(n>MAXTOP) n=MAXTOP; return n; }
+
+/* ======================= TURKCE SUTUN BASLIKLARI ======================= */
+var HDR = {
+  "DATAAREAID":"Sirket","SIRKETKODU":"Sirket Kodu","SIRKET":"Sirket","PARTITION":"Partition","RECID":"RecId",
+  "ITEMID":"Stok Kodu","ITEMNAME":"Stok Adi","NAME":"Ad","ADI":"Adi","DESCRIPTION":"Aciklama","ACIKLAMA":"Aciklama","TEXT":"Aciklama",
+  "ACCOUNTNUM":"Cari Kod","CARIKOD":"Cari Kod","CARIADI":"Cari Adi","INVOICEACCOUNT":"Fatura Hesabi","ORDERACCOUNT":"Siparis Hesabi",
+  "INVOICEID":"Fatura No","INVOICE":"Fatura No","INVOICEDATE":"Fatura Tarihi","SALESID":"Satis No","PURCHID":"Satinalma No","PRODID":"Uretim No","VOUCHER":"Fis No",
+  "TRANSDATE":"Hareket Tarihi","DUEDATE":"Vade Tarihi","VADE":"Vade","TARIH":"Tarih","DELIVERYDATE":"Teslim Tarihi","TESLIMTARIHI":"Teslim Tarihi",
+  "DONEM":"Donem","MODIFIEDDATETIME":"Degisiklik Zamani","CREATEDDATETIME":"Olusturma Zamani","GUNCELLEME":"Guncelleme",
+  "QTY":"Miktar","QTYORDERED":"Siparis Miktari","REMAINQTY":"Kalan Miktar","QTYREMAIN":"Kalan Miktar","MIKTAR":"Miktar",
+  "POSTEDQTY":"Stok Miktari","POSTEDVALUE":"Stok Tutari","PHYSICALVALUE":"Fiziksel Tutar","PHYSICALINVENT":"Fiziksel Stok","AVAILPHYSICAL":"Kullanilabilir",
+  "UNITCOST":"Birim Maliyet","UNITPRICE":"Birim Fiyat","PRICE":"Fiyat","FIYAT":"Fiyat",
+  "AMOUNT":"Tutar","TUTAR":"Tutar","LINEAMOUNT":"Satir Tutari","AMOUNTCUR":"Tutar (DPB)","AMOUNTMST":"Tutar (TL)","NETTUTARTL":"Net Tutar (TL)",
+  "CURRENCYCODE":"Para Birimi","CURRENCY":"Para Birimi","DOVIZ":"Doviz","HEDEF":"Hedef","KUR":"Kur","KURTIPI":"Kur Tipi",
+  "BORC":"Borc","ALACAK":"Alacak","NETBAKIYE":"Net Bakiye","BAKIYE":"Bakiye","HESAPKODU":"Hesap Kodu","HESAPADI":"Hesap Adi","HESAP_SINIF":"Hesap Sinifi",
+  "INVENTLOCATIONID":"Ambar","AMBAR":"Ambar","WAREHOUSE":"Ambar","INVENTSITEID":"Tesis","CONFIGID":"Konfig","INVENTSIZEID":"Beden","INVENTCOLORID":"Renk","INVENTBATCHID":"Parti","INVENTSERIALID":"Seri",
+  "ORDERSTATUS":"Siparis Durumu","STATUS":"Durum","DURUM":"Durum","CUSTGROUP":"Musteri Grubu","VENDGROUP":"Satici Grubu","ITEMGROUPID":"Stok Grubu"
+};
+function hdr(name){
+  var k = ("" + name).toUpperCase();
+  if(HDR[k]) return HDR[k];
+  return ("" + name).replace(/_/g," ");   /* eslenmeyen: alt cizgileri bosluk yap */
+}
+
+/* ======================= SOL LISTE ======================= */
+function buildList(){
+  var html = "";
+  function grp(title, color, arr){
+    html += "<div class='grp' style='color:"+color+"'>"+title+" ("+arr.length+")</div>";
+    for(var i=0;i<arr.length;i++){
+      var n = "ERP_BI_" + arr[i];
+      html += "<button class='vbtn' data-n='"+n+"' data-q='"+arr[i].toLowerCase()+"' onclick=\"pick('"+n+"')\">"+arr[i]+"</button>";
+    }
+  }
+  grp("Sadece SQL", "#4ade80", SQLO);
+  grp("AOT'ta da var", "#60a5fa", AOT);
+  document.getElementById("vlist").innerHTML = html;
+}
+function filterList(){
+  var q = document.getElementById("vfilter").value.toLowerCase();
+  var b = document.getElementById("vlist").getElementsByTagName("button");
+  for(var i=0;i<b.length;i++){
+    b[i].style.display = (!q || b[i].getAttribute("data-q").indexOf(q)>=0) ? "block" : "none";
+  }
+}
+/* SQL'deki tum ERP_BI view'larini cek (yeni eklenenler dahil) ve listeyi yeniden kur */
+function loadViewsFromDB(){
+  setStatus("View listesi DB'den cekiliyor...");
+  try{
+    var r = runSql("SELECT v.name AS N, CASE WHEN EXISTS (SELECT 1 FROM SQLDICTIONARY d WHERE d.FIELDID=0 AND (d.SQLNAME=v.name OR d.NAME=v.name)) THEN 1 ELSE 0 END AS AOTV FROM sys.views v WHERE v.name LIKE 'ERP[_]BI[_]%' ORDER BY v.name");
+    var a=[], s=[], i, nm;
+    for(i=0;i<r.rows.length;i++){
+      nm = ("" + r.rows[i].N).replace(/^ERP_BI_/i, "");
+      if(r.rows[i].AOTV == 1) a.push(nm); else s.push(nm);
+    }
+    if(a.length + s.length === 0){ setStatus("ERP_BI view bulunamadi.", "err"); return; }
+    AOT = a; SQLO = s;
+    buildList();
+    setStatus((a.length + s.length) + " view DB'den yuklendi (yeni eklenenler dahil).", "ok");
+  }catch(e){ showErr(e); }
+}
+
+/* ======================= SECIM / MOD ======================= */
+function runMode(){ if(cur.mode==="def") loadDef(); else if(cur.mode==="anat") loadAnatomy(); else loadData(); }
+function pick(name){
+  cur.view = name;
+  document.getElementById("title").innerHTML = esc(name);
+  var b = document.getElementById("vlist").getElementsByTagName("button");
+  for(var i=0;i<b.length;i++){ b[i].className = (b[i].getAttribute("data-n")===name)?"vbtn sel":"vbtn"; }
+  runMode();
+}
+function setMode(m){
+  cur.mode = m;
+  document.getElementById("bData").className = (m==="data")?"btn act":"btn";
+  document.getElementById("bDef").className = (m==="def")?"btn act":"btn";
+  document.getElementById("bAnat").className = (m==="anat")?"btn act":"btn";
+  if(!cur.view){ setStatus("Once bir view sec."); return; }
+  runMode();
+}
+function reload(){ runMode(); }
+
+/* ======================= VERI ======================= */
+function loadData(){
+  if(!cur.view) return;
+  var lim = clamp(document.getElementById("lim").value);
+  var sql = "SELECT TOP " + lim + " * FROM " + cur.view;
+  setStatus("Calisiyor: " + sql);
+  try{
+    var r = runSql(sql);
+    cur.fields = r.fields; cur.rows = r.rows;
+    fillComp();
+    applyFilters();
+    setStatus(r.rows.length + " satir geldi. (" + sql + ")", "ok");
+  }catch(e){ showErr(e); }
+}
+function loadDef(){
+  if(!cur.view) return;
+  var sql = "SELECT OBJECT_DEFINITION(OBJECT_ID('"+cur.view+"')) AS DEF";
+  setStatus("Tanim aliniyor: " + cur.view);
+  try{
+    var r = runSql(sql);
+    var def = (r.rows.length && r.rows[0].DEF!=null) ? (""+r.rows[0].DEF) : "(tanim bulunamadi)";
+    document.getElementById("body").innerHTML = "<div id='defbox'>"+esc(def)+"</div>";
+    setStatus("Tanim: " + cur.view, "ok");
+  }catch(e){ showErr(e); }
+}
+
+/* ======================= ANATOMI (kaynak tablolar + hesaplamalar) ======================= */
+function loadAnatomy(){
+  if(!cur.view) return;
+  setStatus("Anatomi cikariliyor: " + cur.view);
+  try{
+    var depSql = "SELECT DISTINCT COALESCE(d.referenced_schema_name+'.','')+d.referenced_entity_name AS KAYNAK, COALESCE(o.type_desc,'?') AS TUR FROM sys.sql_expression_dependencies d LEFT JOIN sys.objects o ON o.object_id=d.referenced_id WHERE d.referencing_id=OBJECT_ID('"+cur.view+"') ORDER BY KAYNAK";
+    var dep = runSql(depSql);
+    var tables = [], i;
+    for(i=0;i<dep.rows.length;i++){ tables.push({ n:dep.rows[i].KAYNAK, t:dep.rows[i].TUR }); }
+    var dd = runSql("SELECT OBJECT_DEFINITION(OBJECT_ID('"+cur.view+"')) AS DEF");
+    var def = (dd.rows.length && dd.rows[0].DEF!=null) ? (""+dd.rows[0].DEF) : "";
+    var calcs = parseCalcs(def);
+    renderAnatomy(tables, calcs);
+    setStatus(tables.length + " kaynak, " + calcs.length + " hesaplanan kolon.", "ok");
+  }catch(e){ showErr(e); }
+}
+function isBnd(s, i){ if(i<0||i>=s.length) return true; return /[^A-Za-z0-9_]/.test(s.charAt(i)); }
+function topSelectList(def){
+  var up = def.toUpperCase();
+  var asIx = up.indexOf(" AS ");
+  var sp = up.indexOf("SELECT", asIx>=0 ? asIx : 0);
+  if(sp < 0) return "";
+  var start = sp + 6, depth = 0, j, fromIx = -1;
+  for(j=start;j<def.length;j++){
+    var c = def.charAt(j);
+    if(c==="(") depth++;
+    else if(c===")") depth--;
+    else if(depth===0 && (c==="F"||c==="f") && up.substr(j,4)==="FROM" && isBnd(up,j-1) && isBnd(up,j+4)){ fromIx=j; break; }
+  }
+  if(fromIx < 0) return "";
+  return def.substring(start, fromIx);
+}
+function splitTopCommas(s){
+  var out=[], depth=0, cur="", i, c;
+  for(i=0;i<s.length;i++){
+    c = s.charAt(i);
+    if(c==="(") { depth++; cur+=c; }
+    else if(c===")") { depth--; cur+=c; }
+    else if(c==="," && depth===0){ out.push(cur); cur=""; }
+    else cur += c;
+  }
+  if(trim(cur)!=="") out.push(cur);
+  return out;
+}
+function calcOf(item){
+  var t = trim(item);
+  if(t==="") return null;
+  var up = t.toUpperCase();
+  var depth=0, idx=-1, i;
+  for(i=0;i<t.length-3;i++){
+    var ch = t.charAt(i);
+    if(ch==="(") depth++;
+    else if(ch===")") depth--;
+    else if(depth===0 && up.substr(i,4)===" AS "){ idx=i; }
+  }
+  var expr, alias;
+  if(idx>=0){ expr = trim(t.substring(0,idx)); alias = trim(t.substring(idx+4)); }
+  else { expr = t; var m = t.match(/([A-Za-z0-9_]+)\s*$/); alias = m ? m[1] : t; }
+  alias = alias.replace(/[\[\]"]/g,"");
+  var e = expr.replace(/\s+/g," ");
+  var calc = /[\+\-\*\/]|\bCASE\b|\bWHEN\b|\bCONVERT\b|\bCAST\b|\bISNULL\b|\bCOALESCE\b|\bSUM\b|\bCOUNT\b|\bMIN\b|\bMAX\b|\bAVG\b|\bSUBSTRING\b|\bLEFT\b|\bRIGHT\b|\bDATEDIFF\b|\(/i.test(e);
+  if(/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/.test(e) || /^[A-Za-z0-9_]+$/.test(e)) calc = false;
+  return { alias:alias, expr:e, calc:calc };
+}
+function parseCalcs(def){
+  var list = topSelectList(def);
+  var out = [];
+  if(list===""){ return out; }
+  var items = splitTopCommas(list), i, c;
+  for(i=0;i<items.length;i++){
+    c = calcOf(items[i]);
+    if(c && c.calc) out.push(c);
+  }
+  return out;
+}
+function renderAnatomy(tables, calcs){
+  var h = "", i;
+  h += "<div class='sec'>Kaynak Tablolar / Nesneler (" + tables.length + ")</div>";
+  if(!tables.length) h += "<div style='color:#94a3b8'>(bagimlilik bulunamadi)</div>";
+  for(i=0;i<tables.length;i++){
+    h += "<span class='chip'>" + esc(tables[i].n) + "<span class='t'>" + esc(tables[i].t) + "</span></span>";
+  }
+  h += "<div class='sec' style='margin-top:14px'>Hesaplanan Kolonlar (" + calcs.length + ")</div>";
+  if(!calcs.length) h += "<div style='color:#94a3b8'>(duz kolonlar; hesaplama yok ya da cozumlenemedi - Tanim sekmesine bak)</div>";
+  for(i=0;i<calcs.length;i++){
+    h += "<div class='calc'><b>" + esc(calcs[i].alias) + "</b><span class='eq'>=</span>" + esc(calcs[i].expr) + "</div>";
+  }
+  document.getElementById("body").innerHTML = h;
+}
+
+/* ======================= FILTRE + RENDER ======================= */
+function fillComp(){
+  var sel = document.getElementById("comp");
+  sel.innerHTML = "<option value=''>(tum)</option>";
+  var col = compCol();
+  if(!col) return;
+  var seen = {}, vals = [], i, v;
+  for(i=0;i<cur.rows.length;i++){
+    v = cur.rows[i][col];
+    if(v===null||typeof v==="undefined") continue;
+    v = ""+v;
+    if(!seen[v]){ seen[v]=1; vals.push(v); }
+  }
+  vals.sort();
+  for(i=0;i<vals.length;i++){ sel.innerHTML += "<option value='"+esc(vals[i])+"'>"+esc(vals[i])+" ("+col+")</option>"; }
+}
+function compCol(){
+  for(var c=0;c<COMP_COLS.length;c++){
+    for(var f=0;f<cur.fields.length;f++){
+      if(cur.fields[f].toUpperCase()===COMP_COLS[c]) return cur.fields[f];
+    }
+  }
+  return null;
+}
+function applyFilters(){
+  if(cur.mode!=="data") return;
+  var q = document.getElementById("search").value.toLowerCase();
+  var cv = document.getElementById("comp").value;
+  var col = compCol();
+  var rows = [], i, j, keep, hay;
+  for(i=0;i<cur.rows.length;i++){
+    keep = true;
+    if(cv && col){ keep = (""+cur.rows[i][col] === cv); }
+    if(keep && q){
+      hay = "";
+      for(j=0;j<cur.fields.length;j++){ hay += " " + fmt(cur.rows[i][cur.fields[j]]); }
+      keep = hay.toLowerCase().indexOf(q) >= 0;
+    }
+    if(keep) rows.push(cur.rows[i]);
+  }
+  renderGrid(cur.fields, rows);
+  setStatus(rows.length + " / " + cur.rows.length + " satir gosteriliyor.");
+}
+function renderGrid(fields, rows){
+  var html = "<table><thead><tr>";
+  var i, j;
+  var tr = document.getElementById("trHdr") && document.getElementById("trHdr").checked;
+  for(i=0;i<fields.length;i++){
+    var h1 = tr ? hdr(fields[i]) : fields[i];
+    var h2 = tr ? fields[i] : hdr(fields[i]);
+    html += "<th title='"+esc(h2)+"'>"+esc(h1)+"</th>";
+  }
+  html += "</tr></thead><tbody>";
+  for(i=0;i<rows.length;i++){
+    html += "<tr>";
+    for(j=0;j<fields.length;j++){
+      var v = rows[i][fields[j]];
+      var cls = isNum(v) ? " class='num'" : "";
+      html += "<td"+cls+">"+esc(fmt(v))+"</td>";
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  if(!rows.length) html = "<div style='color:#94a3b8;padding:20px'>Kayit yok.</div>";
+  document.getElementById("body").innerHTML = html;
+}
+
+/* ======================= SERBEST SQL ======================= */
+function toggleSql(){
+  var w = document.getElementById("sqlwrap");
+  var on = (w.style.display === "block");
+  w.style.display = on ? "none" : "block";
+  document.getElementById("bSql").className = on ? "btn" : "btn act";
+}
+function runFree(){
+  var sql = document.getElementById("sqltext").value;
+  var t = sql.replace(/^\s+/,"");
+  if(!/^(select|with)\b/i.test(t)){ setStatus("Sadece SELECT / WITH calistirilir.", "err"); return; }
+  setStatus("Calisiyor: serbest SQL");
+  cur.view = "(serbest)"; document.getElementById("title").innerHTML = "(serbest SQL)";
+  cur.mode = "data";
+  try{
+    var r = runSql(sql);
+    cur.fields = r.fields; cur.rows = r.rows;
+    fillComp(); applyFilters();
+    setStatus(r.rows.length + " satir geldi.", "ok");
+  }catch(e){ showErr(e); }
+}
+
+/* ======================= CSV ======================= */
+function exportCsv(){
+  if(!cur.fields.length){ setStatus("Once veri getir.", "err"); return; }
+  var q = document.getElementById("search").value.toLowerCase();
+  var cv = document.getElementById("comp").value;
+  var col = compCol();
+  var sep=";", out=cur.fields.join(sep)+"\r\n", i, j, v, line, hay, keep;
+  for(i=0;i<cur.rows.length;i++){
+    keep=true;
+    if(cv && col){ keep = (""+cur.rows[i][col]===cv); }
+    if(keep && q){ hay=""; for(j=0;j<cur.fields.length;j++){ hay+=" "+fmt(cur.rows[i][cur.fields[j]]); } keep = hay.toLowerCase().indexOf(q)>=0; }
+    if(!keep) continue;
+    line=[];
+    for(j=0;j<cur.fields.length;j++){
+      v = "" + fmt(cur.rows[i][cur.fields[j]]);
+      if(v.indexOf(sep)>=0 || v.indexOf('"')>=0 || v.indexOf("\n")>=0){ v='"'+v.replace(/"/g,'""')+'"'; }
+      line.push(v);
+    }
+    out += line.join(sep)+"\r\n";
+  }
+  var text = "\uFEFF" + out;
+  var fn = (cur.view||"export").replace(/[^A-Za-z0-9_]/g,"_") + ".csv";
+  try{
+    var blob = new Blob([text], {type:"text/csv;charset=utf-8"});
+    if(navigator.msSaveBlob){ navigator.msSaveBlob(blob, fn); return; }
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=fn;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setStatus("CSV indirildi: "+fn, "ok");
+  }catch(e){ setStatus("CSV hatasi: "+e.message, "err"); }
+}
+
+/* ======================= HATA ======================= */
+function showErr(e){
+  var m = (e && e.message) ? e.message : ("" + e);
+  if(/ActiveXObject|otomasyon|Automation|nesnesi|another domain|data source/i.test(m) || typeof ActiveXObject === "undefined"){
+    m = m + "  |  Not: IE zone 'cross-domain data' (1406) kapali olabilir (duzeltme_90.bat) ya da modern tarayicidasin (ADODB sadece IE11/AX gomulu tarayicida).";
+  }
+  document.getElementById("body").innerHTML = "<div class='err' style='padding:16px'>HATA: "+esc(m)+"</div>";
+  setStatus("Hata.", "err");
+  _cn = null;
+}
+
+/* ======================= BASLAT ======================= */
+buildList();
+document.getElementById("vfilter").onkeyup = filterList;
+document.onkeydown = function(ev){ if(ev.keyCode===116){ if(document.getElementById("sqlwrap").style.display==="block"){ runFree(); } else { reload(); } try{ev.preventDefault();}catch(e){} return false; } };
+setStatus("Hazir (build b8 - tarih gg.aa.yyyy). Soldan bir view sec.");
+</script>
+<!-- VLX tarih-fix b9 (VLXDATE) 2026-06-01 -->
+</body>
+</html>
